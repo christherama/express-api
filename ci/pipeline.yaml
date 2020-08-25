@@ -1,0 +1,55 @@
+resource_types:
+  - name: pull-request
+    type: registry-image
+    source:
+      repository: teliaoss/github-pr-resource
+      tag: v0.21.0
+
+resources:
+  - name: pr
+    type: pull-request
+    check_every: 1m
+    source:
+      repository: christherama/express-api
+      base_branch: master
+      access_token: ((github-access-token))
+
+jobs:
+  - name: test-pr
+    on_error:
+      put: pr
+      params:
+        path: pr
+        status: error
+    on_failure:
+      put: pr
+      params:
+        path: pr
+        status: failure
+    on_success:
+      put: pr
+      params:
+        path: pr
+        status: success
+    plan:
+      - get: pr
+        trigger: true
+        version: every
+      - task: run-tests
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: node
+              tag: 13.14.0-alpine
+          inputs:
+            - name: pr
+              path: .
+          run:
+            path: /bin/sh
+            args:
+              - -c
+              - |
+                npm install
+                npm test
